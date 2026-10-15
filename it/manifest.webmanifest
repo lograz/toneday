@@ -1,0 +1,31 @@
+{
+  "name": "Toneday",
+  "short_name": "Toneday",
+  "description": "Scegli ogni giorno il colore di come ti senti. Domenica i tuoi sette colori diventano un’opera viva con la sua musica. Un diario delle emozioni gentile: gratis, privato, senza account.",
+  "lang": "it",
+  "start_url": "/it",
+  "scope": "/",
+  "id": "/it",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

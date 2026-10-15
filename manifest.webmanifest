@@ -1,0 +1,31 @@
+{
+  "name": "Toneday",
+  "short_name": "Toneday",
+  "description": "Pick the color of how you feel, every day. On Sunday your seven colors become a living artwork with its own music. A gentle mood journal: free, private, no account.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
