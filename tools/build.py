@@ -6,7 +6,7 @@ from pathlib import Path
 
 SITE = "https://toneday.app"
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "6"
+VERSION = "7"
 
 C = {
     "en": {

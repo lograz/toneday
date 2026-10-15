@@ -1,8 +1,8 @@
 // Toneday offline support: pages are fetched fresh when online, everything works offline after the first visit.
-const CACHE = 'toneday-v6';
+const CACHE = 'toneday-v7';
 const CORE = [
   '/', '/it', '/privacy', '/it/privacy',
-  '/assets/app.css?v=6', '/assets/app.js?v=6', '/assets/vendor/motion-13.4.6.js',
+  '/assets/app.css?v=7', '/assets/app.js?v=7', '/assets/vendor/motion-13.4.6.js',
   '/assets/fonts/cormorant-garamond-latin-300-italic.woff2',
   '/assets/fonts/cormorant-garamond-latin-400-italic.woff2',
   '/assets/fonts/figtree-latin-400-normal.woff2',

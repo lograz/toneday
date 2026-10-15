@@ -575,7 +575,7 @@ class GLArt {
     this.u = {};
     ['uRes', 'uTime', 'uMix', 'uSeed', 'uGrain', 'uBase', 'uCol', 'uBlob'].forEach(n => { this.u[n] = gl.getUniformLocation(prog, n); });
     this.col = new Float32Array(GL_MAX * 4); this.blob = new Float32Array(GL_MAX * 4);
-    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; });
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; canvas.hidden = true; });
   }
   draw(t, mixV, base, blobs, seed, grain = .035) {
     const gl = this.gl, c = this.canvas;
@@ -728,6 +728,7 @@ class ArtRenderer {
   }
   render(t) {
     if (this.glr && !this.glr.lost) { this.renderGL(t); return; }
+    if (this.overlayOff) { this.cv.style.visibility = ''; this.overlayOff = false; }
     const { ctx, w, h } = this, L = this.lctx, lw = this.low.width, lh = this.low.height, m = this.mergeE;
     if (!w) return;
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
@@ -930,7 +931,8 @@ const FX = {
 };
 
 /* ---------- Screens and flow ---------- */
-const stageArt = new ArtRenderer($('#stageCv'), { glCanvas: $('#stageGl') });
+const coarse = matchMedia('(pointer: coarse)').matches;
+const stageArt = new ArtRenderer($('#stageCv'), { glCanvas: $('#stageGl'), glScale: coarse ? .42 : .6 });
 const telaArt = new ArtRenderer($('#telaCv'), { blurK: .02, glCanvas: $('#telaGl'), glScale: .7 });
 let current = 'landing', ciKey = null, revealVoices = [], revealDone = false, revealSource = 'mine', revealTints = [];
 let introVoices = [], introTimers = [], heroVisible = true;
@@ -1297,16 +1299,21 @@ else FX.heroIn(.1);
 // pause the hero animation when it scrolls away
 try { new IntersectionObserver(es => { heroVisible = es[0].isIntersecting; }).observe($('.hero')); } catch (e) {}
 
-let last = performance.now(), slowFrames = 0;
+let last = performance.now(), slowFrames = 0, frameNo = 0;
 function loop(ms) {
   const raw = (ms - last) / 1000, dt = Math.min(.05, raw); last = ms; const t = ms / 1000;
   // if the device struggles, paint the artwork at a lower resolution (it is soft anyway)
   if ((current === 'landing' || current === 'reveal') && stageArt.glr && !document.hidden) {
-    slowFrames = raw > .034 && raw < .5 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
-    if (slowFrames > 90 && stageArt.glScale > .36) { stageArt.glScale *= .75; telaArt.glScale = Math.min(telaArt.glScale, stageArt.glScale); stageArt.resize(); slowFrames = 0; }
+    slowFrames = raw > .034 && raw < 3 ? slowFrames + (raw > .1 ? 4 : 1) : Math.max(0, slowFrames - 1);
+    if (slowFrames > 40) {
+      slowFrames = 0;
+      if (stageArt.glScale > .26) { stageArt.glScale *= .7; telaArt.glScale = Math.min(telaArt.glScale, stageArt.glScale); stageArt.resize(); }
+      else { stageArt.glr.lost = true; stageArt.glr.canvas.hidden = true; stageArt.cv.style.visibility = ''; stageArt.overlayOff = false; }
+    }
   }
-  if (current === 'landing') { if (heroVisible) stageArt.render(t); }
-  else if (current === 'reveal') { updateReveal(t); Melody.update(t); stageArt.render(t); if (!$('#wall').hidden) drawPhone(); }
+  const half = coarse && stageArt.glr && !stageArt.glr.lost && (frameNo++ & 1);
+  if (current === 'landing') { if (heroVisible && !half) stageArt.render(t); }
+  else if (current === 'reveal') { updateReveal(t); Melody.update(t); if (!half || stageArt.mergeE < 1) stageArt.render(t); if (!$('#wall').hidden) drawPhone(); }
   else if (current === 'checkin') Ink.frame(t, dt);
   else if (current === 'week') telaArt.render(t);
   requestAnimationFrame(loop);
