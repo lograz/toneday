@@ -1331,7 +1331,13 @@ function loop(ms) {
   }
   const half = coarse && stageArt.glr && !stageArt.glr.lost && (frameNo++ & 1);
   if (current === 'landing') { if (heroVisible && !half) stageArt.render(t); }
-  else if (current === 'reveal') { updateReveal(t); Melody.update(t); if (!half || stageArt.mergeE < 1) stageArt.render(t); if (!$('#wall').hidden) drawPhone(); }
+  else if (current === 'reveal') {
+    updateReveal(t); Melody.update(t);
+    // the wallpaper preview copies the artwork, so it needs a freshly painted frame every time
+    const wall = !$('#wall').hidden;
+    if (!half || stageArt.mergeE < 1 || wall) stageArt.render(t);
+    if (wall) drawPhone();
+  }
   else if (current === 'checkin') Ink.frame(t, dt);
   else if (current === 'week') telaArt.render(t);
   requestAnimationFrame(loop);
