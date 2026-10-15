@@ -44,6 +44,15 @@ const T = {
     phonesIdle: 'Best with headphones', phonesPlaying: 'Playing an example week',
     saved: 'Saved', save: 'Save wallpaper', share: 'Save to Photos',
     wallTitle: 'Toneday wallpaper',
+    tcDone: 'Today is painted.', tcRest: 'Today is a pause.',
+    nextDone: n => n === 0 ? 'It’s Sunday. Your artwork is ready.' : n === 1 ? 'Come back tomorrow for a new color. Your artwork reveals itself tomorrow evening.' : `Come back tomorrow for a new color. Your artwork reveals itself in ${n} days.`,
+    nextTodo: n => n === 0 ? 'Pick a color for today, then reveal your week.' : n === 1 ? 'Your artwork reveals itself tomorrow evening.' : `Your artwork reveals itself in ${n} days.`,
+    closeHint: 'You can close Toneday now. Your colors stay here.',
+    missing: (list, one) => one ? `${list} has no color yet. Tap it to add one, or let it be a pause.` : `${list} have no color yet. Tap a day to add one, or let them be pauses.`,
+    and: 'and',
+    listenWeek: 'Listen to your week so far',
+    installIOS: 'In Safari, tap Share, then “Add to Home Screen”. Tomorrow you’re one tap away.',
+    installOther: 'Install it like an app. Tomorrow you’re one tap away.',
     timeLocale: 'en-US'
   },
   it: {
@@ -63,6 +72,15 @@ const T = {
     phonesIdle: 'Meglio con le cuffie', phonesPlaying: 'Sta suonando una settimana di esempio',
     saved: 'Salvato', save: 'Salva lo sfondo', share: 'Salva nelle Foto',
     wallTitle: 'Sfondo Toneday',
+    tcDone: 'Oggi è dipinto.', tcRest: 'Oggi è un respiro.',
+    nextDone: n => n === 0 ? 'È domenica. La tua opera è pronta.' : n === 1 ? 'Torna domani per il prossimo colore. La tua opera si rivela domani sera.' : `Torna domani per il prossimo colore. Tra ${n} giorni la tua opera si rivela.`,
+    nextTodo: n => n === 0 ? 'Scegli il colore di oggi, poi rivela la settimana.' : n === 1 ? 'La tua opera si rivela domani sera.' : `Tra ${n} giorni la tua opera si rivela.`,
+    closeHint: 'Ora puoi chiudere Toneday: i tuoi colori restano qui.',
+    missing: (list, one) => one ? `${list} è rimasto senza colore. Toccalo per dargliene uno, o lascialo come respiro.` : `${list} sono rimasti senza colore. Tocca un giorno per dargli un colore, o lasciali come respiri.`,
+    and: 'e',
+    listenWeek: 'Ascolta la settimana finora',
+    installIOS: 'In Safari tocca Condividi, poi “Aggiungi alla schermata Home”. Domani torni con un tocco.',
+    installOther: 'Installala come un’app. Domani torni con un tocco.',
     timeLocale: 'it-IT'
   }
 }[LANG];
@@ -890,14 +908,40 @@ function renderWeek() {
   $('#telaText').textContent = n ? T.tela : T.tela0;
   $('#telaCount').textContent = T.of7(n);
   telaArt.setWeek(tints);
-  const tv = Store.get(t0);
-  $('#todayText').textContent = tv ? T.todayIs(phrase(tv)) : tv === null ? T.todayEmpty : '';
-  $('#todayBtn').textContent = tv === undefined ? T.pickToday : T.change;
-  $('#todayBtn').classList.toggle('primary', tv === undefined);
-  const sunday = new Date().getDay() === 0;
-  $('#revealBtn').textContent = sunday || n === 7 ? T.reveal : T.preview;
-  $('#revealBtn').disabled = n === 0;
-  $('#revealBtn').classList.toggle('primary', tv !== undefined);
+  const tv = Store.get(t0), done = tv !== undefined;
+  const dow = (new Date().getDay() + 6) % 7, toSunday = 6 - dow, sunday = toSunday === 0;
+  // the closing moment of the day
+  $('#tcTitle').textContent = !done ? T.question.today : tv ? T.tcDone : T.tcRest;
+  $('#tcPhrase').hidden = !tv;
+  if (tv) { $('#tcPhraseText').textContent = phrase(tv); $('#todayCard').style.setProperty('--tc', hsl(visual(tv))); }
+  $('#tcNext').textContent = done ? `${T.nextDone(toSunday)} ${sunday ? '' : T.closeHint}`.trim() : T.nextTodo(toSunday);
+  const missing = days.slice(0, dow).filter(d => Store.get(ymd(d)) === undefined).map(d => cap1(new Intl.DateTimeFormat(T.timeLocale, { weekday: 'long' }).format(d)));
+  const list = missing.length > 1 ? missing.slice(0, -1).join(', ') + ` ${T.and} ` + missing[missing.length - 1] : missing[0];
+  $('#tcMissing').hidden = !(done && missing.length);
+  if (missing.length) $('#tcMissing').textContent = T.missing(list, missing.length === 1);
+  // actions: one clear next step
+  $('#todayBtn').hidden = done;
+  $('#changeBtn').hidden = !done;
+  $('#revealBtn').textContent = sunday || n === 7 ? T.reveal : T.listenWeek;
+  $('#revealBtn').hidden = n === 0;
+  $('#revealBtn').classList.toggle('primary', done && (sunday || n === 7));
+  renderInstall();
+}
+
+/* Install hint: shown once today is done, never in the installed app */
+let deferredInstall = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; renderInstall(); });
+function renderInstall() {
+  const card = $('#installCard'); if (!card) return;
+  let standalone = false;
+  try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) {}
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const done = Store.get(ymd(today())) !== undefined;
+  const show = done && !standalone && !Store.data.installDismissed && (ios || !!deferredInstall);
+  card.hidden = !show;
+  if (!show) return;
+  $('#installText').textContent = ios ? T.installIOS : T.installOther;
+  $('#installBtn').hidden = !deferredInstall;
 }
 
 /* Reveal */
@@ -1007,6 +1051,13 @@ $('#keepBtn').addEventListener('click', keepColor);
 $('#skipBtn').addEventListener('click', leaveEmpty);
 $('#closeCheckin').addEventListener('click', () => { renderWeek(); go(Store.hasAny() ? 'week' : 'landing'); });
 $('#todayBtn').addEventListener('click', () => openCheckin(today()));
+$('#changeBtn').addEventListener('click', () => openCheckin(today()));
+$('#installBtn').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  try { deferredInstall.prompt(); await deferredInstall.userChoice; } catch (e) {}
+  deferredInstall = null; track('install_prompt'); renderInstall();
+});
+$('#installClose').addEventListener('click', () => { Store.data.installDismissed = true; Store.save(); renderInstall(); });
 $('#revealBtn').addEventListener('click', () => startReveal('mine'));
 $('#skipReveal').addEventListener('click', () => {
   const t = now(); stageArt.drops.forEach((d, i) => { if (t < d.appearAt) d.appearAt = t - .9 + i * .04; });

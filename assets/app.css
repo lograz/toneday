@@ -157,7 +157,7 @@ input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:6px}
 .drop.today{color:var(--ink);font-weight:600}
 .drop.today.filled .dot{box-shadow:0 0 0 3px var(--night),0 0 0 4.5px var(--ink),0 0 26px -2px var(--c)}
 .drop.todo{color:var(--ink)}
-.tela{position:relative;height:clamp(240px,42svh,340px);border-radius:28px;overflow:hidden;background:var(--night-2)}
+.tela{position:relative;height:clamp(200px,32svh,300px);border-radius:28px;overflow:hidden;background:var(--night-2)}
 .tela canvas{position:absolute;inset:0;width:100%;height:100%}
 .tela .cap{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:18px 20px;background:linear-gradient(to top,rgba(11,13,20,.72),rgba(11,13,20,0))}
 .tela .cap .display{font-size:22px}
@@ -198,3 +198,15 @@ html.fx .btn:active{transform:none}
 html.fx .melody span.on{transform:none}
 .hero h1 .ch{display:inline-block}
 .hero .lede .w{display:inline-block}
+
+/* Today card: the closing moment of the day */
+.today-card{display:grid;gap:8px;padding:22px;border-radius:24px;background:var(--night-2);border:1px solid rgba(235,232,242,.06)}
+.today-card .tc-title{font-size:clamp(30px,7vw,38px);line-height:1.05}
+.today-card .phrase{font-size:18px}
+.today-card .phrase .sw{background:var(--tc,transparent);box-shadow:0 0 12px var(--tc,transparent)}
+.today-card .tc-next{margin:4px 0 0;font-size:15px;line-height:1.5;color:#cfccda;max-width:44ch}
+.week-links{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:-6px}
+.install{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 64px 14px 18px;border-radius:20px;border:1px dashed rgba(235,232,242,.18)}
+.install-x{position:absolute;top:8px;right:8px}
+.install .row{flex:none}
+@media (max-width:420px){ .install{flex-wrap:wrap} }

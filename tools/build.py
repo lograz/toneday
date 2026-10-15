@@ -6,7 +6,7 @@ from pathlib import Path
 
 SITE = "https://toneday.app"
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "3"
+VERSION = "4"
 
 C = {
     "en": {
@@ -58,6 +58,7 @@ C = {
         "light": "Light", "dark": "dark", "bright": "bright",
         "leave_empty": "Leave empty", "keep": "Keep this color",
         "week_h": "Your week", "week_note": "Your artwork reveals itself on Sunday evening. No hurry.",
+        "today_label": "Today", "change_today": "Change today’s color", "install_h": "Keep Toneday close", "install_btn": "Add to Home Screen",
         "tela": "The canvas so far", "home": "Toneday home",
         "skip_reveal": "Skip", "reshape": "New shape", "as_wall": "Use as wallpaper", "back_week": "Back to your week",
         "melody": "The melody of the week",
@@ -112,6 +113,7 @@ C = {
         "light": "Luce", "dark": "scuro", "bright": "chiaro",
         "leave_empty": "Lascia vuoto", "keep": "Tengo questo colore",
         "week_h": "La tua settimana", "week_note": "La tua opera si rivela domenica sera. Nessuna fretta.",
+        "today_label": "Oggi", "change_today": "Cambia il colore di oggi", "install_h": "Tieni Toneday a portata di mano", "install_btn": "Aggiungi alla Home",
         "tela": "La tela finora", "home": "Home di Toneday",
         "skip_reveal": "Salta", "reshape": "Nuova forma", "as_wall": "Usa come sfondo", "back_week": "Torna alla settimana",
         "melody": "La melodia della settimana",
@@ -347,9 +349,19 @@ def index(lang):
     <div style="display:grid;gap:8px">
       <p class="eyebrow" id="weekRange"></p>
       <h2 class="display" id="week-h" style="font-size:40px">{esc(c['week_h'])}</h2>
-      <p class="note">{esc(c['week_note'])}</p>
     </div>
     <ol class="drops" id="drops"></ol>
+    <section class="today-card" id="todayCard" aria-live="polite">
+      <p class="eyebrow">{c['today_label']}</p>
+      <p class="display tc-title" id="tcTitle"></p>
+      <p class="phrase" id="tcPhrase"><span class="sw" id="tcSw"></span><span id="tcPhraseText"></span></p>
+      <p class="tc-next" id="tcNext"></p>
+      <p class="note" id="tcMissing" hidden></p>
+    </section>
+    <div class="week-actions">
+      <button id="todayBtn" class="btn primary" type="button">{esc(c['start'])}</button>
+      <button id="revealBtn" class="btn" type="button"></button>
+    </div>
     <div class="tela">
       <canvas id="telaCv" aria-hidden="true"></canvas>
       <div class="cap">
@@ -360,12 +372,20 @@ def index(lang):
         <p class="count" id="telaCount"></p>
       </div>
     </div>
-    <p class="note" id="todayText"></p>
-    <div class="week-actions">
-      <button id="todayBtn" class="btn" type="button"></button>
-      <button id="revealBtn" class="btn" type="button"></button>
+    <div class="week-links">
+      <button id="changeBtn" class="btn text" type="button">{esc(c['change_today'])}</button>
+      <button class="btn text" type="button" data-example>{esc(c['example'])}</button>
     </div>
-    <button class="btn text" type="button" data-example style="justify-self:start">{esc(c['example'])}</button>
+    <aside class="install" id="installCard" hidden aria-labelledby="install-h">
+      <div style="display:grid;gap:4px;min-width:0">
+        <p id="install-h" style="margin:0;font-weight:600">{esc(c['install_h'])}</p>
+        <p class="note" id="installText"></p>
+      </div>
+      <div class="row">
+        <button id="installBtn" class="btn" type="button" hidden>{esc(c['install_btn'])}</button>
+        <button id="installClose" class="icon-btn install-x" type="button" aria-label="{c['close']}">{ICON_CLOSE}</button>
+      </div>
+    </aside>
   </div>
 </section>
 

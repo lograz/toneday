@@ -34,7 +34,7 @@
 <meta name="twitter:image" content="https://toneday.app/og-it.png">
 <link rel="preload" href="/assets/fonts/cormorant-garamond-latin-300-italic.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/app.css?v=3">
+<link rel="stylesheet" href="/assets/app.css?v=4">
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Toneday", "url": "https://toneday.app/it", "description": "Scegli ogni giorno il colore di come ti senti. Domenica i tuoi sette colori diventano un’opera viva con la sua musica. Un diario delle emozioni gentile: gratis, privato, senza account.", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any", "browserRequirements": "Requires JavaScript", "inLanguage": "it", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "image": "https://toneday.app/og-it.png"}</script>
@@ -186,9 +186,19 @@
     <div style="display:grid;gap:8px">
       <p class="eyebrow" id="weekRange"></p>
       <h2 class="display" id="week-h" style="font-size:40px">La tua settimana</h2>
-      <p class="note">La tua opera si rivela domenica sera. Nessuna fretta.</p>
     </div>
     <ol class="drops" id="drops"></ol>
+    <section class="today-card" id="todayCard" aria-live="polite">
+      <p class="eyebrow">Oggi</p>
+      <p class="display tc-title" id="tcTitle"></p>
+      <p class="phrase" id="tcPhrase"><span class="sw" id="tcSw"></span><span id="tcPhraseText"></span></p>
+      <p class="tc-next" id="tcNext"></p>
+      <p class="note" id="tcMissing" hidden></p>
+    </section>
+    <div class="week-actions">
+      <button id="todayBtn" class="btn primary" type="button">Scegli il colore di oggi</button>
+      <button id="revealBtn" class="btn" type="button"></button>
+    </div>
     <div class="tela">
       <canvas id="telaCv" aria-hidden="true"></canvas>
       <div class="cap">
@@ -199,12 +209,20 @@
         <p class="count" id="telaCount"></p>
       </div>
     </div>
-    <p class="note" id="todayText"></p>
-    <div class="week-actions">
-      <button id="todayBtn" class="btn" type="button"></button>
-      <button id="revealBtn" class="btn" type="button"></button>
+    <div class="week-links">
+      <button id="changeBtn" class="btn text" type="button">Cambia il colore di oggi</button>
+      <button class="btn text" type="button" data-example>Ascolta una settimana di esempio</button>
     </div>
-    <button class="btn text" type="button" data-example style="justify-self:start">Ascolta una settimana di esempio</button>
+    <aside class="install" id="installCard" hidden aria-labelledby="install-h">
+      <div style="display:grid;gap:4px;min-width:0">
+        <p id="install-h" style="margin:0;font-weight:600">Tieni Toneday a portata di mano</p>
+        <p class="note" id="installText"></p>
+      </div>
+      <div class="row">
+        <button id="installBtn" class="btn" type="button" hidden>Aggiungi alla Home</button>
+        <button id="installClose" class="icon-btn install-x" type="button" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+    </aside>
   </div>
 </section>
 
@@ -245,6 +263,6 @@
 </section>
 
 <script src="/assets/vendor/motion-13.4.6.js" defer></script>
-<script src="/assets/app.js?v=3" defer></script>
+<script src="/assets/app.js?v=4" defer></script>
 </body>
 </html>
