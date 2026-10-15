@@ -953,7 +953,7 @@ function go(name, push = true) {
   const fromEl = $(SCREENS[from]), toEl = $(SCREENS[name]), stage = $('#stage');
   toEl.hidden = false; toEl.style.opacity = ''; toEl.style.filter = ''; toEl.style.pointerEvents = '';
   if (needsStage(name)) { stage.hidden = false; stage.style.opacity = ''; stage.style.filter = ''; }
-  if (name === 'landing') { document.body.classList.remove('locked'); stageArt.mode = 'still'; stageArt.mergeE = 1; stageArt.setWeek(EXAMPLE); window.scrollTo(0, 0); }
+  if (name === 'landing') { renderHeroActions(); document.body.classList.remove('locked'); stageArt.mode = 'still'; stageArt.mergeE = 1; stageArt.setWeek(EXAMPLE); window.scrollTo(0, 0); }
   const outs = [fromEl];
   if (needsStage(from) && !needsStage(name)) outs.push(stage);
   // the leaving screen never catches a tap, even while it fades
@@ -1042,6 +1042,17 @@ function heroPaint(e, tap) {
   hero.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') heroPaint(e, false); });
   hero.addEventListener('pointerdown', e => { Sound.init(); heroPaint(e, true); });
 })();
+
+/* Returning visitors find their week right on the first page */
+function renderHeroActions() {
+  const has = Store.hasAny(), done = Store.get(ymd(today())) !== undefined;
+  const week = $('#heroWeek'), start = $('#heroStart'), ex = $('#heroExample');
+  week.hidden = !has;
+  week.classList.toggle('primary', done);
+  start.hidden = has && done;
+  start.classList.toggle('primary', !done);
+  ex.hidden = has;
+}
 
 /* Check-in */
 function openCheckin(date) {
@@ -1248,6 +1259,7 @@ $('#keepBtn').addEventListener('click', keepColor);
 $('#skipBtn').addEventListener('click', leaveEmpty);
 $('#closeCheckin').addEventListener('click', () => { renderWeek(); go(Store.hasAny() ? 'week' : 'landing'); });
 $('#todayBtn').addEventListener('click', () => openCheckin(today()));
+$('#heroWeek').addEventListener('click', () => { renderWeek(); go('week'); });
 $('#changeBtn').addEventListener('click', () => openCheckin(today()));
 $('#installBtn').addEventListener('click', async () => {
   if (!deferredInstall) return;
@@ -1292,7 +1304,11 @@ stageArt.setWeek(EXAMPLE);
 renderWeek();
 FX.init();
 try { history.replaceState({ screen: 'landing' }, ''); } catch (e) {}
-if (Store.hasAny() && location.hash !== '#about') { go('week'); }
+let standalone = false;
+try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) {}
+renderHeroActions();
+// the website always opens on its first page; the installed app opens straight on the week
+if (standalone && Store.hasAny() && location.hash !== '#about') { go('week'); }
 else if (!Store.data.seen) { FX.prepHero(); listen.hidden = false; setTimeout(() => $('#listenGo').focus({ preventScroll: true }), 50); }
 else FX.heroIn(.1);
 

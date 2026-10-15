@@ -6,7 +6,7 @@ from pathlib import Path
 
 SITE = "https://toneday.app"
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "7"
+VERSION = "8"
 
 C = {
     "en": {
@@ -263,8 +263,9 @@ def index(lang):
       <p class="lede">{esc(c['lede'])}</p>
       <p class="paint-hint" id="paintHint"><span class="brush-dot" aria-hidden="true"></span><span id="paintHintText">{esc(c['paint_touch'])}</span></p>
       <div class="hero-actions">
-        <button class="btn primary" type="button" data-start>{esc(c['start'])}</button>
-        <button class="btn" type="button" data-example>{esc(c['example'])}</button>
+        <button class="btn" type="button" id="heroWeek" hidden>{esc(c['week_h'])}</button>
+        <button class="btn primary" type="button" data-start id="heroStart">{esc(c['start'])}</button>
+        <button class="btn" type="button" data-example id="heroExample">{esc(c['example'])}</button>
       </div>
       <div class="hero-actions">
         <span id="phones" class="phones muted"><span class="ic">{ICON_PHONES}</span><span id="phonesText">{esc(c['phones'])}</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></span>
