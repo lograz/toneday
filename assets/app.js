@@ -866,8 +866,9 @@ const FX = {
     M.animate('.topbar', { opacity: 1, y: 0 }, { duration: 1, ease: this.ease, delay: delay + 1.5 });
   },
   screenIn(el) {
-    return M.animate(el, { opacity: [0, 1], filter: ['blur(16px)', 'blur(0px)'], scale: [1.02, 1] }, { duration: .8, ease: this.ease })
-      .then(() => { el.style.filter = ''; el.style.transform = ''; });
+    const clear = () => { el.style.filter = ''; el.style.transform = ''; el.style.opacity = ''; };
+    setTimeout(clear, 1000);
+    return M.animate(el, { opacity: [0, 1], filter: ['blur(16px)', 'blur(0px)'], scale: [1.02, 1] }, { duration: .8, ease: this.ease }).then(clear, clear);
   },
   screenOut(els) {
     return M.animate(els, { opacity: [1, 0], filter: ['blur(0px)', 'blur(10px)'] }, { duration: .5, ease: [.4, 0, 1, 1] });
@@ -948,16 +949,18 @@ function go(name, push = true) {
   pendingOuts.forEach(f => f()); pendingOuts = [];
   const from = current; current = name;
   const fromEl = $(SCREENS[from]), toEl = $(SCREENS[name]), stage = $('#stage');
-  toEl.hidden = false; toEl.style.opacity = ''; toEl.style.filter = '';
+  toEl.hidden = false; toEl.style.opacity = ''; toEl.style.filter = ''; toEl.style.pointerEvents = '';
   if (needsStage(name)) { stage.hidden = false; stage.style.opacity = ''; stage.style.filter = ''; }
   if (name === 'landing') { document.body.classList.remove('locked'); stageArt.mode = 'still'; stageArt.mergeE = 1; stageArt.setWeek(EXAMPLE); window.scrollTo(0, 0); }
   const outs = [fromEl];
   if (needsStage(from) && !needsStage(name)) outs.push(stage);
+  // the leaving screen never catches a tap, even while it fades
+  outs.forEach(el => { if (el !== toEl) el.style.pointerEvents = 'none'; });
   let done = false;
   const finish = () => {
     if (done) return; done = true;
     outs.forEach(el => {
-      el.style.opacity = ''; el.style.filter = ''; el.style.transform = '';
+      el.style.opacity = ''; el.style.filter = ''; el.style.transform = ''; el.style.pointerEvents = '';
       if (el === stage) { if (!needsStage(current)) el.hidden = true; }
       else if (el !== $(SCREENS[current])) el.hidden = true;
     });
@@ -967,7 +970,8 @@ function go(name, push = true) {
     FX.screenIn(toEl);
     if (needsStage(name) && !needsStage(from)) M.animate(stage, { opacity: [0, 1] }, { duration: .8 });
     const out = FX.screenOut(outs);
-    out.then(finish);
+    out.then(finish, finish);
+    setTimeout(finish, 700); // safety net: never leave an invisible screen on top
     pendingOuts.push(() => { try { out.stop(); } catch (e) {} finish(); });
     if (name === 'landing') FX.heroIn(.25);
     if (name === 'checkin') FX.checkinIn();
