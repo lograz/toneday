@@ -6,7 +6,7 @@ from pathlib import Path
 
 SITE = "https://toneday.app"
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "4"
+VERSION = "5"
 
 C = {
     "en": {
@@ -58,6 +58,7 @@ C = {
         "light": "Light", "dark": "dark", "bright": "bright",
         "leave_empty": "Leave empty", "keep": "Keep this color",
         "week_h": "Your week", "week_note": "Your artwork reveals itself on Sunday evening. No hurry.",
+        "paint_hover": "Move the cursor: you are painting, and every color sounds.", "paint_touch": "Tap anywhere: every color leaves a drop, and a note.",
         "today_label": "Today", "change_today": "Change today’s color", "install_h": "Keep Toneday close", "install_btn": "Add to Home Screen",
         "tela": "The canvas so far", "home": "Toneday home",
         "skip_reveal": "Skip", "reshape": "New shape", "as_wall": "Use as wallpaper", "back_week": "Back to your week",
@@ -113,6 +114,7 @@ C = {
         "light": "Luce", "dark": "scuro", "bright": "chiaro",
         "leave_empty": "Lascia vuoto", "keep": "Tengo questo colore",
         "week_h": "La tua settimana", "week_note": "La tua opera si rivela domenica sera. Nessuna fretta.",
+        "paint_hover": "Muovi il cursore: stai dipingendo, e ogni colore suona.", "paint_touch": "Tocca dove vuoi: ogni colore lascia una goccia, e una nota.",
         "today_label": "Oggi", "change_today": "Cambia il colore di oggi", "install_h": "Tieni Toneday a portata di mano", "install_btn": "Aggiungi alla Home",
         "tela": "La tela finora", "home": "Home di Toneday",
         "skip_reveal": "Salta", "reshape": "Nuova forma", "as_wall": "Usa come sfondo", "back_week": "Torna alla settimana",
@@ -235,7 +237,7 @@ def index(lang):
     return head(lang, c, c["path"], c["title"], c["desc"], jsonld(lang, c)) + f"""
 <body>
 <a class="sr-only" href="#main">{c['skip']}</a>
-<canvas id="stage" aria-hidden="true"></canvas>
+<div id="stage" aria-hidden="true"><canvas id="stageGl"></canvas><canvas id="stageCv"></canvas></div>
 
 <div id="listen" role="dialog" aria-modal="true" aria-labelledby="listen-t" hidden>
   <span class="listen-ic" aria-hidden="true">{ICON_PHONES}</span>
@@ -259,6 +261,7 @@ def index(lang):
       <p class="eyebrow">{esc(c['eyebrow'])}</p>
       <h1>Toneday</h1>
       <p class="lede">{esc(c['lede'])}</p>
+      <p class="paint-hint" id="paintHint"><span class="brush-dot" aria-hidden="true"></span><span id="paintHintText">{esc(c['paint_touch'])}</span></p>
       <div class="hero-actions">
         <button class="btn primary" type="button" data-start>{esc(c['start'])}</button>
         <button class="btn" type="button" data-example>{esc(c['example'])}</button>
@@ -363,6 +366,7 @@ def index(lang):
       <button id="revealBtn" class="btn" type="button"></button>
     </div>
     <div class="tela">
+      <canvas id="telaGl" aria-hidden="true"></canvas>
       <canvas id="telaCv" aria-hidden="true"></canvas>
       <div class="cap">
         <div style="display:grid;gap:4px">

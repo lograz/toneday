@@ -34,7 +34,7 @@
 <meta name="twitter:image" content="https://toneday.app/og-en.png">
 <link rel="preload" href="/assets/fonts/cormorant-garamond-latin-300-italic.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/app.css?v=4">
+<link rel="stylesheet" href="/assets/app.css?v=5">
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Toneday", "url": "https://toneday.app/", "description": "Pick the color of how you feel, every day. On Sunday your seven colors become a living artwork with its own music. A gentle mood journal: free, private, no account.", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any", "browserRequirements": "Requires JavaScript", "inLanguage": "en", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "image": "https://toneday.app/og-en.png"}</script>
@@ -42,7 +42,7 @@
 </head>
 <body>
 <a class="sr-only" href="#main">Skip to content</a>
-<canvas id="stage" aria-hidden="true"></canvas>
+<div id="stage" aria-hidden="true"><canvas id="stageGl"></canvas><canvas id="stageCv"></canvas></div>
 
 <div id="listen" role="dialog" aria-modal="true" aria-labelledby="listen-t" hidden>
   <span class="listen-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></svg></span>
@@ -66,6 +66,7 @@
       <p class="eyebrow">A color a day</p>
       <h1>Toneday</h1>
       <p class="lede">Pick the color of how you feel. On Sunday, your seven colors become one artwork you can see and hear.</p>
+      <p class="paint-hint" id="paintHint"><span class="brush-dot" aria-hidden="true"></span><span id="paintHintText">Tap anywhere: every color leaves a drop, and a note.</span></p>
       <div class="hero-actions">
         <button class="btn primary" type="button" data-start>Pick today’s color</button>
         <button class="btn" type="button" data-example>Hear an example week</button>
@@ -200,6 +201,7 @@
       <button id="revealBtn" class="btn" type="button"></button>
     </div>
     <div class="tela">
+      <canvas id="telaGl" aria-hidden="true"></canvas>
       <canvas id="telaCv" aria-hidden="true"></canvas>
       <div class="cap">
         <div style="display:grid;gap:4px">
@@ -263,6 +265,6 @@
 </section>
 
 <script src="/assets/vendor/motion-13.4.6.js" defer></script>
-<script src="/assets/app.js?v=4" defer></script>
+<script src="/assets/app.js?v=5" defer></script>
 </body>
 </html>

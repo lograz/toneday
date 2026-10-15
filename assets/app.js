@@ -53,6 +53,7 @@ const T = {
     listenWeek: 'Listen to your week so far',
     installIOS: 'In Safari, tap Share, then “Add to Home Screen”. Tomorrow you’re one tap away.',
     installOther: 'Install it like an app. Tomorrow you’re one tap away.',
+    paintHover: 'Move the cursor: you are painting, and every color sounds.',
     timeLocale: 'en-US'
   },
   it: {
@@ -81,6 +82,7 @@ const T = {
     listenWeek: 'Ascolta la settimana finora',
     installIOS: 'In Safari tocca Condividi, poi “Aggiungi alla schermata Home”. Domani torni con un tocco.',
     installOther: 'Installala come un’app. Domani torni con un tocco.',
+    paintHover: 'Muovi il cursore: stai dipingendo, e ogni colore suona.',
     timeLocale: 'it-IT'
   }
 }[LANG];
@@ -485,6 +487,118 @@ const Ink = {
   }
 };
 
+
+/* ---------- Velatura: the weekly artwork painted in WebGL ----------
+   Each colour is a transparent glaze laid over the ones below, like velature in oil painting.
+   Pigment gathers at the edges, granulates in the tooth of the paper, and the whole surface
+   drifts slowly, like water under the paint. */
+const GL_MAX = 16;
+const VELATURA_FRAG = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime, uMix, uSeed, uGrain;
+uniform vec3 uBase;
+uniform vec4 uCol[${GL_MAX}];
+uniform vec4 uBlob[${GL_MAX}];
+varying vec2 vUv;
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p = m * p; a *= 0.5; }
+  return v;
+}
+void main() {
+  vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+  float asp = uRes.x / uRes.y;
+  vec2 p = vec2(uv.x * asp, uv.y);
+  float t = uTime * 0.035;
+  // water under the paint
+  vec2 q = vec2(fbm(p * 1.6 + vec2(0.0, t) + uSeed), fbm(p * 1.6 + vec2(5.2, -t) + uSeed));
+  vec2 r = vec2(fbm(p * 2.2 + 3.0 * q + vec2(1.7, 9.2) + t * 0.6), fbm(p * 2.2 + 3.0 * q + vec2(8.3, 2.8) - t * 0.5));
+  vec2 w = p + (r - 0.5) * 0.38 * uMix;
+  // the ground: dark paper, never flat
+  vec3 art = uBase * (0.9 + 0.16 * noise(p * 3.0 + uSeed));
+  float gran = noise(w * 120.0) * 0.55 + noise(w * 38.0) * 0.45;
+  for (int i = 0; i < ${GL_MAX}; i++) {
+    vec4 b = uBlob[i];
+    if (b.w < 0.002) continue;
+    float d = length(w - vec2(b.x * asp, b.y));
+    float f = 1.0 - d / max(b.z, 0.001);
+    if (f <= 0.0) continue;
+    float body = smoothstep(0.0, 0.38, f);
+    float rim = smoothstep(0.0, 0.05, f) * (1.0 - smoothstep(0.05, 0.24, f));
+    float g = mix(0.9, 1.06, gran);
+    float a = clamp(body * 0.66 + rim * 0.4, 0.0, 1.0) * b.w * g;
+    vec3 c = uCol[i].rgb * (1.0 + 0.28 * uCol[i].a);
+    c = clamp(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.18), 0.0, 1.0);
+    vec3 glaze = mix(c, c * 0.72, rim * 0.8) * mix(0.96, 1.04, gran);
+    art = mix(art, glaze, a * 0.8);
+    art *= mix(vec3(1.0), 0.72 + 0.4 * glaze, a * 0.12);
+  }
+  // paper fibres and tooth catch the light
+  float fib = noise(vec2(p.x * 9.0, p.y * 42.0) + uSeed) - 0.5;
+  float tooth = noise(uv * uRes * 0.5) - 0.5;
+  art += fib * 0.045 + tooth * 0.035 * uMix;
+  vec2 vv = uv - 0.5;
+  art *= 1.0 - dot(vv, vv) * 0.5;
+  vec3 night = vec3(0.043, 0.051, 0.078);
+  vec3 outc = mix(night, art, uMix);
+  outc += (hash(uv * uRes + fract(uTime * 7.0) * 61.0) - 0.5) * uGrain;
+  gl_FragColor = vec4(outc, 1.0);
+}`;
+class GLArt {
+  constructor(canvas, opts = {}) {
+    const gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: !!opts.preserve, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('webgl unavailable');
+    this.gl = gl; this.canvas = canvas; this.lost = false;
+    const sh = (type, src) => {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, 'attribute vec2 aPos; varying vec2 vUv; void main(){ vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }'));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, VELATURA_FRAG));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'aPos');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    this.u = {};
+    ['uRes', 'uTime', 'uMix', 'uSeed', 'uGrain', 'uBase', 'uCol', 'uBlob'].forEach(n => { this.u[n] = gl.getUniformLocation(prog, n); });
+    this.col = new Float32Array(GL_MAX * 4); this.blob = new Float32Array(GL_MAX * 4);
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; });
+  }
+  draw(t, mixV, base, blobs, seed, grain = .035) {
+    const gl = this.gl, c = this.canvas;
+    if (this.lost) return;
+    gl.viewport(0, 0, c.width, c.height);
+    this.col.fill(0); this.blob.fill(0);
+    blobs.slice(0, GL_MAX).forEach((b, i) => {
+      this.col.set([b.rgb[0], b.rgb[1], b.rgb[2], b.glow || 0], i * 4); this.blob.set([b.x, b.y, b.r, b.a], i * 4);
+    });
+    gl.uniform2f(this.u.uRes, c.width, c.height);
+    gl.uniform1f(this.u.uTime, t % 10000);
+    gl.uniform1f(this.u.uMix, mixV);
+    gl.uniform1f(this.u.uSeed, (seed % 97) * 0.137);
+    gl.uniform1f(this.u.uGrain, grain);
+    gl.uniform3fv(this.u.uBase, base);
+    gl.uniform4fv(this.u.uCol, this.col);
+    gl.uniform4fv(this.u.uBlob, this.blob);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  dispose() { try { const x = this.gl.getExtension('WEBGL_lose_context'); x && x.loseContext(); } catch (e) {} }
+}
+const rgb01 = c => hslToRgb(c.h, c.s, c.l).map(v => v / 255);
+
 /* ---------- The weekly artwork ---------- */
 class ArtRenderer {
   constructor(canvas, opts = {}) {
@@ -493,6 +607,8 @@ class ArtRenderer {
     this.blurK = opts.blurK || .013; this.dpr = 1; this.w = 0; this.h = 0;
     this.blobs = []; this.drops = []; this.dropXY = []; this.mode = 'still';
     this.mergeE = 1; this.mergeStart = 0; this.mergeDur = 5; this.seed = opts.seed || 7; this.mixStart = -99; this.baseFill = '#0b0d14';
+    this.baseRgb = [20 / 255, 23 / 255, 36 / 255]; this.brush = []; this.glScale = opts.glScale || .6; this.glr = null;
+    if (opts.glCanvas) { try { this.glr = new GLArt(opts.glCanvas, { preserve: opts.preserve }); } catch (e) { this.glr = null; opts.glCanvas.hidden = true; } }
     const g = document.createElement('canvas'); g.width = g.height = 128;
     const gx = g.getContext('2d'), id = gx.createImageData(128, 128);
     for (let i = 0; i < 128 * 128; i++) { const v = Math.random() * 255 | 0; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
@@ -506,6 +622,7 @@ class ArtRenderer {
       this.w = this.cv.width = Math.round(r.width * this.dpr); this.h = this.cv.height = Math.round(r.height * this.dpr);
     }
     this.low.width = clamp(Math.round(this.w / 14), 40, 200); this.low.height = Math.max(40, Math.round(this.low.width * this.h / this.w));
+    if (this.glr) { const k = pxW ? 1 : this.glScale; this.glr.canvas.width = Math.max(2, Math.round(this.w * k)); this.glr.canvas.height = Math.max(2, Math.round(this.h * k)); }
   }
   newPath(rng) {
     return { cx: .2 + rng() * .6, cy: .15 + rng() * .7, ax: .1 + rng() * .22, ay: .1 + rng() * .22,
@@ -527,12 +644,44 @@ class ArtRenderer {
       this.dropXY.push(best);
     }
     this.blobs = [];
-    days.forEach((c, i) => { if (c) this.blobs.push({ i, c, vc: { h: c.h, s: c.s, l: clamp(c.l, .16, .86) }, path: this.newPath(rng), prev: null, appear: 1, pulseAt: -99 }); });
+    days.forEach((c, i) => { if (c) { const vc = { h: c.h, s: c.s, l: clamp(c.l, .16, .86) }; this.blobs.push({ i, c, vc, rgb: rgb01(vc), path: this.newPath(rng), prev: null, appear: 1, pulseAt: -99 }); } });
     let r = 0, g = 0, b = 0; this.blobs.forEach(o => { const [R, G, B] = hslToRgb(o.vc.h, o.vc.s, o.vc.l); r += R; g += G; b += B; });
     const n = Math.max(1, this.blobs.length);
     this.baseFill = this.blobs.length ? `rgb(${11 * .6 + r / n * .28 | 0},${13 * .6 + g / n * .28 | 0},${20 * .6 + b / n * .28 | 0})` : '#141724';
+    this.baseRgb = this.blobs.length ? [(11 * .6 + r / n * .28) / 255, (13 * .6 + g / n * .28) / 255, (20 * .6 + b / n * .28) / 255] : [20 / 255, 23 / 255, 36 / 255];
   }
   pulse(i, t) { const b = this.blobs.find(o => o.i === i); if (b) b.pulseAt = t; }
+  /* a stroke of the brush: a fresh glaze that spreads and fades */
+  paint(x, y, tint, t, tap) {
+    const vc = { h: tint.h, s: tint.s, l: clamp(tint.l, .2, .8) };
+    this.brush.push({ x, y, born: t, life: tap ? 6.5 : 4.5, r0: .015, r1: (tap ? .2 : .1) + tint.i * .07, rgb: rgb01(vc) });
+    if (this.brush.length > 9) this.brush.splice(0, this.brush.length - 9);
+  }
+  renderGL(t) {
+    const { ctx, w, h } = this, m = this.mergeE;
+    if (!w) return;
+    const sA = Math.sqrt(w / h) * 1.1, k = this.mixE(t), list = [];
+    for (const b of this.blobs) {
+      if (b.appear <= 0) continue;
+      const [fx, fy, fr] = this.flowPos(b, t, k), [dx, dy] = this.dropPos(b.i);
+      const pu = Math.exp(-(t - b.pulseAt) * 1.3);
+      list.push({ x: lerp(dx, fx, m), y: lerp(dy, fy, m), r: Math.max(.002, lerp(.03, fr * (1 + .05 * Math.sin(t * .22 + b.i * 1.7) + .07 * pu), m)) * sA, a: b.appear, rgb: b.rgb, glow: pu });
+    }
+    this.brush = this.brush.filter(s => t - s.born < s.life);
+    for (const s of this.brush) {
+      const q = (t - s.born) / s.life;
+      list.push({ x: s.x, y: s.y, r: lerp(s.r0, s.r1, 1 - Math.pow(1 - q, 3)) * sA, a: .92 * Math.pow(1 - q, 1.3) * Math.min(1, (t - s.born) / .12), rgb: s.rgb, glow: 0 });
+    }
+    const extra = list.length - GL_MAX; if (extra > 0) list.splice(this.blobs.length, extra);
+    this.glr.draw(t, m, this.baseRgb, list, this.seed);
+    // the 2D layer only carries the falling drops: hide it when there is nothing on it
+    if (m < .999) {
+      if (this.overlayOff) { this.cv.style.visibility = ''; this.overlayOff = false; }
+      ctx.clearRect(0, 0, w, h); this.drawDrops(t, m);
+    } else if (!this.overlayOff) {
+      ctx.clearRect(0, 0, w, h); this.cv.style.visibility = 'hidden'; this.overlayOff = true;
+    }
+  }
   reseed(t) {
     this.seed = (this.seed * 9301 + 49297) % 233280 + 1;
     const rng = mulberry32(this.seed), k = this.mixE(t);
@@ -547,33 +696,8 @@ class ArtRenderer {
     return [lerp(b.prev.x, x, k), lerp(b.prev.y, y, k), lerp(b.prev.r, r, k)];
   }
   dropPos(i) { return this.dropXY[i] || [.5, .5]; }
-  render(t) {
-    const { ctx, w, h } = this, L = this.lctx, lw = this.low.width, lh = this.low.height, m = this.mergeE;
-    if (!w) return;
-    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
-    ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, w, h);
-    if (m > .001 && this.blobs.length) {
-      L.fillStyle = this.baseFill; L.fillRect(0, 0, lw, lh);
-      const mx = Math.sqrt(lw * lh) * 1.1, k = this.mixE(t);
-      for (const b of this.blobs) {
-        if (b.appear <= 0) continue;
-        const [fx, fy, fr] = this.flowPos(b, t, k), [dx, dy] = this.dropPos(b.i);
-        const x = lerp(dx, fx, m) * lw, y = lerp(dy, fy, m) * lh;
-        const pu = Math.exp(-(t - b.pulseAt) * 1.3);
-        const r = Math.max(1, lerp(.03, fr * (1 + .05 * Math.sin(t * .22 + b.i * 1.7) + .07 * pu), m) * mx);
-        const vc = { h: b.vc.h, s: b.vc.s, l: Math.min(.92, b.vc.l + .1 * pu) };
-        const g = L.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, hsl(vc, .9 * b.appear)); g.addColorStop(.45, hsl(vc, .5 * b.appear)); g.addColorStop(1, hsl(vc, 0));
-        L.fillStyle = g; L.beginPath(); L.arc(x, y, r, 0, TAU); L.fill();
-      }
-      ctx.globalAlpha = m; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-      ctx.filter = `blur(${Math.round(Math.max(w, h) * this.blurK)}px)`;
-      const pad = Math.max(w, h) * .04; ctx.drawImage(this.low, -pad, -pad, w + pad * 2, h + pad * 2);
-      ctx.filter = 'none'; ctx.globalAlpha = 1;
-    } else if (!this.blobs.length) {
-      ctx.fillStyle = this.baseFill; ctx.fillRect(0, 0, w, h);
-    }
-    if (m < .999) {
+  drawDrops(t, m) {
+    const { ctx, w, h } = this;
       const dpr = this.dpr, R = Math.min(26, (w / dpr) * .045) * dpr;
       for (const d of this.drops) {
         const [px, py] = this.dropPos(d.i), x = px * w, y = py * h, fade = 1 - m;
@@ -601,7 +725,35 @@ class ArtRenderer {
           ctx.beginPath(); ctx.arc(x, y, R * .9, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
         }
       }
+  }
+  render(t) {
+    if (this.glr && !this.glr.lost) { this.renderGL(t); return; }
+    const { ctx, w, h } = this, L = this.lctx, lw = this.low.width, lh = this.low.height, m = this.mergeE;
+    if (!w) return;
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+    ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, w, h);
+    if (m > .001 && this.blobs.length) {
+      L.fillStyle = this.baseFill; L.fillRect(0, 0, lw, lh);
+      const mx = Math.sqrt(lw * lh) * 1.1, k = this.mixE(t);
+      for (const b of this.blobs) {
+        if (b.appear <= 0) continue;
+        const [fx, fy, fr] = this.flowPos(b, t, k), [dx, dy] = this.dropPos(b.i);
+        const x = lerp(dx, fx, m) * lw, y = lerp(dy, fy, m) * lh;
+        const pu = Math.exp(-(t - b.pulseAt) * 1.3);
+        const r = Math.max(1, lerp(.03, fr * (1 + .05 * Math.sin(t * .22 + b.i * 1.7) + .07 * pu), m) * mx);
+        const vc = { h: b.vc.h, s: b.vc.s, l: Math.min(.92, b.vc.l + .1 * pu) };
+        const g = L.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, hsl(vc, .9 * b.appear)); g.addColorStop(.45, hsl(vc, .5 * b.appear)); g.addColorStop(1, hsl(vc, 0));
+        L.fillStyle = g; L.beginPath(); L.arc(x, y, r, 0, TAU); L.fill();
+      }
+      ctx.globalAlpha = m; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.filter = `blur(${Math.round(Math.max(w, h) * this.blurK)}px)`;
+      const pad = Math.max(w, h) * .04; ctx.drawImage(this.low, -pad, -pad, w + pad * 2, h + pad * 2);
+      ctx.filter = 'none'; ctx.globalAlpha = 1;
+    } else if (!this.blobs.length) {
+      ctx.fillStyle = this.baseFill; ctx.fillRect(0, 0, w, h);
     }
+    if (m < .999) this.drawDrops(t, m);
     ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = .07;
     ctx.fillStyle = this.grain; ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
@@ -777,8 +929,8 @@ const FX = {
 };
 
 /* ---------- Screens and flow ---------- */
-const stageArt = new ArtRenderer($('#stage'));
-const telaArt = new ArtRenderer($('#telaCv'), { blurK: .02 });
+const stageArt = new ArtRenderer($('#stageCv'), { glCanvas: $('#stageGl') });
+const telaArt = new ArtRenderer($('#telaCv'), { blurK: .02, glCanvas: $('#telaGl'), glScale: .7 });
 let current = 'landing', ciKey = null, revealVoices = [], revealDone = false, revealSource = 'mine', revealTints = [];
 let introVoices = [], introTimers = [], heroVisible = true;
 const today = () => startOfDay(new Date());
@@ -846,10 +998,44 @@ function startIntroSound() {
   });
 }
 function stopIntroSound() {
+  if (brushVoice) { brushVoice.stop(.8); brushVoice = null; }
   introTimers.forEach(clearTimeout); introTimers = [];
   introVoices.forEach(v => v.stop(1)); introVoices = []; Sound.droneStop();
   $('#phones').classList.add('muted'); $('#phonesText').textContent = T.phonesIdle;
 }
+
+/* Painting in the hero: the cursor is a brush, every colour sounds */
+let brushVoice = null, brushIdle = null, lastPaint = 0, painted = 0;
+const canHover = matchMedia('(hover: hover)').matches;
+function heroTint(x, y) {
+  const cx = innerWidth / 2, cy = innerHeight * .46, dx = x - cx, dy = y - cy;
+  let h = Math.atan2(dx, -dy) * 180 / Math.PI; if (h < 0) h += 360;
+  const i = clamp(Math.hypot(dx, dy) / (Math.min(innerWidth, innerHeight) * .5), .25, 1);
+  return { h, s: .1 + i * .78, l: .5 + .12 * Math.sin(h * Math.PI / 180), i };
+}
+function heroPaint(e, tap) {
+  if (current !== 'landing' || e.target.closest('a, button, nav')) return;
+  const t = now();
+  if (!tap && t - lastPaint < .075) return;
+  lastPaint = t;
+  const c = heroTint(e.clientX, e.clientY), pan = (e.clientX / innerWidth - .5) * 1.2;
+  stageArt.paint(e.clientX / innerWidth, e.clientY / innerHeight, c, t, tap);
+  if (Sound.ctx && Sound.on) {
+    if (!brushVoice) brushVoice = new Voice(.45, pan);
+    brushVoice.set(c); brushVoice.setPan(pan); brushVoice.fade(1, .2);
+    clearTimeout(brushIdle);
+    brushIdle = setTimeout(() => { if (brushVoice) brushVoice.fade(0, .9); }, 420);
+    if (tap) Sound.bell(POOL[noteSlot(c)], pan, .07);
+  }
+  if (tap) haptic(6);
+  if (++painted === 12) track('hero_paint');
+}
+(() => {
+  const hero = $('.hero');
+  if (canHover) $('#paintHintText').textContent = T.paintHover;
+  hero.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') heroPaint(e, false); });
+  hero.addEventListener('pointerdown', e => { Sound.init(); heroPaint(e, true); });
+})();
 
 /* Check-in */
 function openCheckin(date) {
@@ -1002,10 +1188,13 @@ function openWall() {
   $('#saveWall').focus();
 }
 function drawPhone() {
-  const pc = $('#phoneCv'), px = pc.getContext('2d');
-  const sw = stageArt.cv.width, sh = stageArt.cv.height, a = pc.width / pc.height;
-  let cw = sh * a, ch = sh; if (cw > sw) { cw = sw; ch = sw / a; }
-  px.drawImage(stageArt.cv, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, pc.width, pc.height);
+  const pc = $('#phoneCv'), px = pc.getContext('2d'), a = pc.width / pc.height;
+  const layers = [stageArt.glr && !stageArt.glr.lost ? stageArt.glr.canvas : null, stageArt.cv].filter(Boolean);
+  layers.forEach(src => {
+    const sw = src.width, sh = src.height;
+    let cw = sh * a, ch = sh; if (cw > sw) { cw = sw; ch = sw / a; }
+    px.drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, pc.width, pc.height);
+  });
 }
 async function saveWall() {
   const dpr = Math.min(devicePixelRatio || 1, 3);
@@ -1014,11 +1203,13 @@ async function saveWall() {
   if (W < 1080) { H = Math.round(H * 1080 / W); W = 1080; }
   if (H > 3200) { W = Math.round(W * 3200 / H); H = 3200; }
   const cv = document.createElement('canvas');
-  const art = new ArtRenderer(cv, { seed: stageArt.seed });
+  const glcv = stageArt.glr ? document.createElement('canvas') : null;
+  const art = new ArtRenderer(cv, { seed: stageArt.seed, glCanvas: glcv, preserve: true });
   art.resize(W, H); art.setWeek(revealTints); art.mergeE = 1;
   art.blobs.forEach(b => { const s = stageArt.blobs.find(o => o.i === b.i); if (s) { b.path = s.path; b.prev = s.prev; } });
   art.mixStart = stageArt.mixStart;
   art.render(now());
+  if (art.glr && !art.glr.lost) { cv.getContext('2d').drawImage(art.glr.canvas, 0, 0, W, H); art.glr.dispose(); }
   const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
   if (!blob) return;
   const name = `toneday-${ymd(thisWeek()[0])}.png`;
@@ -1102,9 +1293,14 @@ else FX.heroIn(.1);
 // pause the hero animation when it scrolls away
 try { new IntersectionObserver(es => { heroVisible = es[0].isIntersecting; }).observe($('.hero')); } catch (e) {}
 
-let last = performance.now();
+let last = performance.now(), slowFrames = 0;
 function loop(ms) {
-  const dt = Math.min(.05, (ms - last) / 1000); last = ms; const t = ms / 1000;
+  const raw = (ms - last) / 1000, dt = Math.min(.05, raw); last = ms; const t = ms / 1000;
+  // if the device struggles, paint the artwork at a lower resolution (it is soft anyway)
+  if ((current === 'landing' || current === 'reveal') && stageArt.glr && !document.hidden) {
+    slowFrames = raw > .034 && raw < .5 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
+    if (slowFrames > 90 && stageArt.glScale > .36) { stageArt.glScale *= .75; telaArt.glScale = Math.min(telaArt.glScale, stageArt.glScale); stageArt.resize(); slowFrames = 0; }
+  }
   if (current === 'landing') { if (heroVisible) stageArt.render(t); }
   else if (current === 'reveal') { updateReveal(t); Melody.update(t); stageArt.render(t); if (!$('#wall').hidden) drawPhone(); }
   else if (current === 'checkin') Ink.frame(t, dt);
