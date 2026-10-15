@@ -983,7 +983,9 @@ function go(name, push = true) {
   requestAnimationFrame(() => { stageArt.resize(); Ink.resize(); telaArt.resize(); if (name === 'landing') stageArt.setWeek(EXAMPLE); });
 }
 addEventListener('popstate', e => {
-  const s = (e.state && e.state.screen) || (Store.hasAny() ? 'week' : 'landing');
+  // only our own screen changes carry a state; jumps to an anchor (#how, #faq) are plain scrolling
+  if (!e.state || !e.state.screen) return;
+  const s = e.state.screen;
   if (s === 'week') renderWeek();
   go(s, false);
 });
